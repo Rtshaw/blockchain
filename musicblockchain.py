@@ -8,6 +8,9 @@ from uuid import uuid4
 import requests
 from flask import Flask, jsonify, request
 
+import random
+import ecdsa
+import base58
 
 class Blockchain:
     def __init__(self):
@@ -56,7 +59,7 @@ class Blockchain:
             current_main_index += 1
 
         return True
-    
+
     def valid_music_chain(self, music_chain: List[Dict[str, Any]]) -> bool:
         """
         Determine if a given blockchain is valid
@@ -153,10 +156,10 @@ class Blockchain:
             return True
 
         return False
-    
+
     # 交易區塊（有交易紀錄）
     def new_music_block(self, main_index, music_proof: int, previous_hash: Optional[str]) -> Dict[str, Any]:
-        
+
         music_block = {
             'index':len(self.music_chain)+1,
             'main_index':main_index,
@@ -165,16 +168,16 @@ class Blockchain:
             'music_proof': music_proof,
             'previous_hash': previous_hash or self.hash(self.music_chain[-1]),
         }
-        
+
         # Reset the current list of transactions and music chain
         self.current_transactions = []
 
         print(len(self.music_chain)+1)
-        
+
         self.music_chain.append(music_block)
         return music_block
 
-    
+
     # 創建音樂區塊（放音檔hash）（尚未放音檔hash）
     def new_block(self, proof: int, previous_hash: Optional[str]) -> Dict[str, Any]:
         """
@@ -191,15 +194,15 @@ class Blockchain:
             'proof': proof,
             'previous_hash': previous_hash or self.hash(self.main_chain[-1]),
         }
-        
-        
+
+
         # 創立music-chain（交易區塊）的創世區塊
         self.music_chain = []
         self.new_music_block(len(self.main_chain)+1, previous_hash='1', music_proof=100)
-        
+
         self.main_chain.append(block)
         return block
-    
+
     # 交易紀錄
     def new_transaction(self, sender: str, recipient: str, amount: int) -> int:
         """
@@ -218,10 +221,44 @@ class Blockchain:
 
         return self.last_music_block['index'] + 1
 
+    # 錢包
+    def create_wallet(self, account: str, password: str, identity: int) -> int:
+        """
+        創建錢包，生成錢包地址並回傳
+
+        :param account: 使用者於系統中註冊之帳號
+        :param password: 使用者於系統中註冊之密碼
+        :param identity: 使用者於系統中註冊所提供之身分證
+        :return: wallet_address
+        """
+
+        private_key = hex(random.randint(1, 8288608480668846482228684402464624222246648088028668608040264462))[2:]
+        if len(private_key) != 64:
+            for i in range(64 - len(private_key)):
+                private_key = '0' + private_key
+
+        private_key = bytes.fromhex(private_key)
+
+        sk = ecdsa.SigningKey.from_string(private_key, curve=ecdsa.SECP256k1)
+        vk = b'\x04' + sk.verifying_key.to_string()
+
+        ek = hashlib.sha256(vk).digest()
+
+        ripemd160 = hashlib.new('ripemd160')
+        ripemd160.update(ek)
+        rk = b'\x00' + ripemd160.digest()
+
+        checksum = hashlib.sha256(hashlib.sha256(rk).digest()).digest()[0:4]
+        public_key = rk + checksum
+
+        wallet_address = base58.b58encode(public_key)
+
+        return wallet_address
+
     @property
     def last_block(self) -> Dict[str, Any]:
         return self.main_chain[-1]
-    
+
     @property
     def last_music_block(self) -> Dict[str, Any]:
         return self.music_chain[-1]
@@ -237,7 +274,7 @@ class Blockchain:
         # We must make sure that the Dictionary is Ordered, or we'll have inconsistent hashes
         block_string = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
-    
+
     @staticmethod
     def hash(music_block: Dict[str, Any]) -> str:
         """
@@ -245,7 +282,7 @@ class Blockchain:
 
         :param block: Block
         """
-        
+
         # We must make sure that the Dictionary is Ordered, or we'll have inconsistent hashes
         music_block_string = json.dumps(music_block, sort_keys=True).encode()
         return hashlib.sha256(music_block_string).hexdigest()
@@ -262,7 +299,7 @@ class Blockchain:
             proof += 1
 
         return proof
-    
+
     def proof_of_music_work(self, last_music_proof: int) -> int:
         """
         简单的工作量证明:
@@ -289,15 +326,15 @@ class Blockchain:
         guess = f'{last_proof}{proof}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "0000"
-    
+
     @staticmethod
     def valid_music_proof(last_music_proof: int, music_proof: int) -> bool:
 
         guess = f'{last_music_proof}{music_proof}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "0000"
-    
-    
+
+
 
 # Instantiate the Node
 app = Flask(__name__)
@@ -309,9 +346,9 @@ node_identifier = str(uuid4()).replace('-', '')
 blockchain = Blockchain()
 print(type(blockchain.music_chain))
 
-# 一般礦的的挖礦（交易區塊）music chain 
+# 一般礦的的挖礦（交易區塊）music chain
 @app.route('/<main_index>/mine', methods=['GET'])
-def mine(main_index):    
+def mine(main_index):
     # We run the proof of work algorithm to get the next proof...
     last_music_block = blockchain.last_music_block
     last_music_proof = last_music_block['music_proof']
@@ -344,17 +381,17 @@ def addmusic():
     last_block = blockchain.last_block
     last_proof = last_block['proof']
     proof = blockchain.proof_of_work(last_proof)
-        
+
     block = blockchain.new_block(proof, None)
-    
+
     response = {
         'message' : "New Music Add",
         'main_index' : block['main_index'],
         'proof' : block['proof'],
         'previous_hash' : block['previous_hash'],
     }
-    
-    
+
+
     return jsonify(response), 200
 
 @app.route('/transactions/new', methods=['POST'])
@@ -382,7 +419,7 @@ def full_chain():
         'musiclength':len(blockchain.music_chain),
     }
     return jsonify(response), 200
-    
+
 
 
 @app.route('/nodes/register', methods=['POST'])
@@ -430,3 +467,19 @@ if __name__ == '__main__':
     port = args.port
 
     app.run(host='127.0.0.1', port=port)
+
+
+@app.route('/wallet/create', methods=['POST'])
+def create_wallet():
+    values = request.get_json()
+
+    # 檢查POST数据 (帳號；密碼；身分證)
+    required = ['account ', 'password', 'identity']
+    if not all(k in values for k in required):
+        return 'Missing values', 400
+
+    # Create a wallet
+    wallet_address = blockchain.create_wallet(values['account'], values['password'], values['identity'])
+
+    response = {'wallet_address': wallet_address}
+    return jsonify(response), 201
