@@ -1,12 +1,14 @@
 import hashlib
 import json
+import os
 from time import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 from uuid import uuid4
+from mp3hash import mp3hash
 
 import requests
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 
 import random
 import ecdsa
@@ -19,7 +21,7 @@ class Blockchain:
         self.nodes = set()
 
         # 創建主鏈創世區塊
-        self.new_block(previous_hash='1', proof=100)
+        self.new_block('translate_tts.mp3', previous_hash='1', proof=100)
 
     def register_node(self, address: str) -> None:
         """
@@ -156,6 +158,7 @@ class Blockchain:
             return True
 
         return False
+        
 
     # 交易區塊（有交易紀錄）
     def new_music_block(self, main_index, music_proof: int, previous_hash: Optional[str]) -> Dict[str, Any]:
@@ -172,14 +175,12 @@ class Blockchain:
         # Reset the current list of transactions and music chain
         self.current_transactions = []
 
-        print(len(self.music_chain)+1)
-
         self.music_chain.append(music_block)
         return music_block
 
 
-    # 創建音樂區塊（放音檔hash）（尚未放音檔hash）
-    def new_block(self, proof: int, previous_hash: Optional[str]) -> Dict[str, Any]:
+    # 創建音樂區塊（放音檔hash）
+    def new_block(self, mp3path, proof: int, previous_hash: Optional[str]) -> Dict[str, Any]:
         """
         生成新區塊
 
@@ -192,6 +193,7 @@ class Blockchain:
             'main_index': len(self.main_chain) + 1,
             'timestamp': time(),
             'proof': proof,
+            'music_hash':mp3hash(mp3path),
             'previous_hash': previous_hash or self.hash(self.main_chain[-1]),
         }
 
@@ -339,12 +341,15 @@ class Blockchain:
 # Instantiate the Node
 app = Flask(__name__)
 
+UPLOAD_PATH = 'static/uploads'
+APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(APP_ROOT, UPLOAD_PATH)
+
 # Generate a globally unique address for this node
 node_identifier = str(uuid4()).replace('-', '')
 
 # Instantiate the Blockchain
 blockchain = Blockchain()
-print(type(blockchain.music_chain))
 
 # 一般礦的的挖礦（交易區塊）music chain
 @app.route('/<main_index>/mine', methods=['GET'])
@@ -375,19 +380,36 @@ def mine(main_index):
     }
     return jsonify(response), 200
 
-# 音樂區塊（main chain）
-@app.route('/addmusic', methods=['GET'])
+@app.route('/')
+def index():
+    mp3_file = []
+    for filename in os.listdir(UPLOAD_FOLDER):
+        if (filename.find('.mp3') > -1):
+            mp3_file.append(filename)
+
+
+# 音樂區塊（main chain
+@app.route('/addmusic', methods=['GET', 'POST'])
 def addmusic():
+    if request.method == 'POST':
+        file = request.files['file']
+        upload_path = '{}/{}'.format(UPLOAT_FOLDER, file.filename)
+        file.save(upload_path)
+        
+        block = blockchain.new_block(upload_path, proof, None)
+        
+        return 'OK'
+    
     last_block = blockchain.last_block
     last_proof = last_block['proof']
     proof = blockchain.proof_of_work(last_proof)
-
-    block = blockchain.new_block(proof, None)
-
+    
+    
     response = {
         'message' : "New Music Add",
         'main_index' : block['main_index'],
         'proof' : block['proof'],
+        'music_hash':block['music_hash'],
         'previous_hash' : block['previous_hash'],
     }
 
@@ -458,17 +480,6 @@ def consensus():
     return jsonify(response), 200
 
 
-if __name__ == '__main__':
-    from argparse import ArgumentParser
-
-    parser = ArgumentParser()
-    parser.add_argument('-p', '--port', default=5000, type=int, help='port to listen on')
-    args = parser.parse_args()
-    port = args.port
-
-    app.run(host='127.0.0.1', port=port)
-
-
 @app.route('/wallet/create', methods=['POST'])
 def create_wallet():
     values = request.get_json()
@@ -483,3 +494,16 @@ def create_wallet():
 
     response = {'wallet_address': wallet_address}
     return jsonify(response), 201
+
+
+if __name__ == '__main__':
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument('-p', '--port', default=5000, type=int, help='port to listen on')
+    args = parser.parse_args()
+    port = args.port
+
+    app.run(host='127.0.0.1', port=port)
+
+
