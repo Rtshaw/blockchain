@@ -254,8 +254,14 @@ class Blockchain:
         public_key = rk + checksum
 
         wallet_address = base58.b58encode(public_key)
+        
+        wallet = {
+            'prvateKey' : private_key,
+            'publicKey' : public_key,
+            'address' : wallet_address,
+        }
 
-        return wallet_address
+        return wallet
 
     @property
     def last_block(self) -> Dict[str, Any]:
@@ -492,7 +498,9 @@ def create_wallet():
     # Create a wallet
     wallet_address = blockchain.create_wallet(values['account'], values['password'], values['identity'])
 
-    response = {'wallet_address': wallet_address}
+    response = {
+        'wallet_address': wallet['address']
+    }
     return jsonify(response), 201
 
 
