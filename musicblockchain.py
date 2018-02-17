@@ -348,7 +348,7 @@ class Blockchain:
 app = Flask(__name__)
 
 UPLOAD_PATH = 'static/uploads'
-APP_ROOT = os.path.dirname(os.path.abspath(module.__file__))
+APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(APP_ROOT, UPLOAD_PATH)
 # Generate a globally unique address for this node
 node_identifier = str(uuid4()).replace('-', '')
@@ -401,10 +401,12 @@ def addmusic():
         upload_path = '{}/{}'.format(UPLOAD_FOLDER, file.filename)
         file.save(upload_path)
         
-        block = blockchain.new_block(upload_path, proof, None)
+        
         last_block = blockchain.last_block
         last_proof = last_block['proof']
         proof = blockchain.proof_of_work(last_proof)
+        
+        block = blockchain.new_block(upload_path, proof, None)
     
     
         response = {
@@ -511,6 +513,6 @@ if __name__ == '__main__':
     port = args.port
     
 
-    app.run(host='127.0.0.1', port=port, debug=True)
+    app.run(debug=True, host='127.0.0.1', port=port)
 
 
