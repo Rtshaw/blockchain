@@ -403,23 +403,22 @@ def addmusic():
         file.save(upload_path)
         
         block = blockchain.new_block(upload_path, proof, None)
+        last_block = blockchain.last_block
+        last_proof = last_block['proof']
+        proof = blockchain.proof_of_work(last_proof)
+    
+    
+        response = {
+            'message' : "New Music Add",
+            'main_index' : block['main_index'],
+            'proof' : block['proof'],
+            'music_hash':block['music_hash'],
+            'previous_hash' : block['previous_hash'],
+        }
         
         return 'OK'
     
-    last_block = blockchain.last_block
-    last_proof = last_block['proof']
-    proof = blockchain.proof_of_work(last_proof)
     
-    
-    response = {
-        'message' : "New Music Add",
-        'main_index' : block['main_index'],
-        'proof' : block['proof'],
-        'music_hash':block['music_hash'],
-        'previous_hash' : block['previous_hash'],
-    }
-
-
     return jsonify(response), 200
 
 @app.route('/transactions/new', methods=['POST'])
