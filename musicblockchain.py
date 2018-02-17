@@ -148,7 +148,7 @@ class Blockchain:
                 music_chain = response.json()['music_chain']
 
                 # Check if the length is longer and the main_chain is valid
-                if musiclength > max_length and self.valid_chain(music_chain):
+                if musiclength > max_length and self.valid_music_chain(music_chain):
                     max_length = musiclength
                     new_music_chain = music_chain
 
@@ -348,7 +348,7 @@ class Blockchain:
 app = Flask(__name__)
 
 UPLOAD_PATH = 'static/uploads'
-APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+APP_ROOT = os.path.dirname(os.path.abspath(module.__file__))
 UPLOAD_FOLDER = os.path.join(APP_ROOT, UPLOAD_PATH)
 # Generate a globally unique address for this node
 node_identifier = str(uuid4()).replace('-', '')
