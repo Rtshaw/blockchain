@@ -14,9 +14,4 @@ manual_scaling:
 resources:
   cpu: 1
   memory_gb: 0.5
-  disk_size_gb: 1
-
-#[START env]
-  env_variables:
-          CLOUD_STORAGE_BUCKET: storemp3
-#[END env]
+  disk_size_gb: 10
