@@ -1,11 +1,13 @@
 import hashlib
 import json
 import os
+import logging
 from time import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 from uuid import uuid4
 from mp3hash import mp3hash
+from google.cloud import storage
 
 import requests
 from flask import Flask, jsonify, request, render_template
@@ -347,9 +349,11 @@ class Blockchain:
 # Instantiate the Node
 app = Flask(__name__)
 
-UPLOAD_PATH = 'static/uploads'
-APP_ROOT = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = os.path.join(APP_ROOT, UPLOAD_PATH)
+
+CLOUD_STORAGE_BUCKET = os.environ['storemp3']
+#UPLOAD_PATH = 'static/uploads'
+#APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+#UPLOAD_FOLDER = os.path.join(APP_ROOT, UPLOAD_PATH)
 # Generate a globally unique address for this node
 node_identifier = str(uuid4()).replace('-', '')
 
@@ -396,6 +400,31 @@ def index():
 # 音樂區塊（main chain
 @app.route('/addmusic', methods=['GET', 'POST'])
 def addmusic():
+
+    """Process the uploaded file and upload it to Google Cloud Storage."""
+    uploaded_file = request.files.get('file')
+
+    if not uploaded_file:
+        return 'No file uploaded.', 400
+
+    # Create a Cloud Storage client.
+    gcs = storage.Client()
+
+    # Get the bucket that the file will be uploaded to.
+    bucket = gcs.get_bucket(CLOUD_STORAGE_BUCKET)
+
+    # Create a new blob and upload the file's content.
+    blob = bucket.blob(uploaded_file.filename)
+
+    blob.upload_from_string(
+        uploaded_file.read(),
+        content_type=uploaded_file.content_type
+    )
+
+    # The public URL can be used to directly access the uploaded file via HTTP.
+    return blob.public_url
+    
+    """
     if request.method == 'POST':
         file = request.files['file']
         upload_path = '{}/{}'.format(UPLOAD_FOLDER, file.filename)
@@ -418,6 +447,7 @@ def addmusic():
         }
         
         return 'OK'
+    """
     
     
     return jsonify(response), 200
@@ -503,6 +533,14 @@ def create_wallet():
     }
     return jsonify(response), 201
 
+    
+@app.errorhandler(500)
+def server_error(e):
+    logging.exception('An error occurred during a request.')
+    return """
+    An internal error occurred: <pre>{}</pre>
+    See logs for full stacktrace.
+    """.format(e), 500
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
