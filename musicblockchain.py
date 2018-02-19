@@ -196,7 +196,7 @@ class Blockchain:
             'music_hash':mp3hash(mp3path),
             'previous_hash': previous_hash or self.hash(self.main_chain[-1]),
         }
-
+        
 
         # 創立music-chain（交易區塊）的創世區塊
         self.music_chain = []
@@ -269,6 +269,7 @@ class Blockchain:
 
     @property
     def last_music_block(self) -> Dict[str, Any]:
+        
         return self.music_chain[-1]
 
     @staticmethod
@@ -343,7 +344,6 @@ class Blockchain:
         return guess_hash[:4] == "0000"
 
 
-
 # Instantiate the Node
 app = Flask(__name__)
 
@@ -356,12 +356,46 @@ node_identifier = str(uuid4()).replace('-', '')
 # Instantiate the Blockchain
 blockchain = Blockchain()
 
+
+# 音樂區塊（main chain
+@app.route('/addmusic', methods=['GET', 'POST'])
+def addmusic():
+    if request.method == 'POST':
+        file = request.files['file']
+        upload_path = '{}/{}'.format(UPLOAD_FOLDER, file.filename)
+        file.save(upload_path)
+             
+        last_block = blockchain.last_block
+        last_proof = last_block['proof']
+        proof = blockchain.proof_of_work(last_proof)
+        
+        block = blockchain.new_block(upload_path, proof, None)
+    
+    
+        response = {
+            'message' : "New Music Add",
+            'main_index' : block['main_index'],
+            'proof' : block['proof'],
+            'music_hash':block['music_hash'],
+            'previous_hash' : block['previous_hash'],
+        }
+        
+        return 'OK'
+    
+    
+    return jsonify(response), 200
+
+
+    
 # 一般礦的的挖礦（交易區塊）music chain
 @app.route('/<main_index>/mine', methods=['GET'])
 def mine(main_index):
     # We run the proof of work algorithm to get the next proof...
+    main_index = int(main_index)
+    block = blockchain.main_chain
     last_music_block = blockchain.last_music_block
     last_music_proof = last_music_block['music_proof']
+    #music_proof = blockchain.proof_of_music_work(main_index, last_music_proof)
     music_proof = blockchain.proof_of_music_work(last_music_proof)
 
     # 给工作量证明的節點提供獎勵.
@@ -385,6 +419,7 @@ def mine(main_index):
     }
     return jsonify(response), 200
 
+"""
 @app.route('/')
 def index():
     mp3_file = []
@@ -392,35 +427,8 @@ def index():
         if (filename.find('.mp3') > -1):
             mp3_file.append(filename)
 
-
-# 音樂區塊（main chain
-@app.route('/addmusic', methods=['GET', 'POST'])
-def addmusic():
-    if request.method == 'POST':
-        file = request.files['file']
-        upload_path = '{}/{}'.format(UPLOAD_FOLDER, file.filename)
-        file.save(upload_path)
-        
-        
-        last_block = blockchain.last_block
-        last_proof = last_block['proof']
-        proof = blockchain.proof_of_work(last_proof)
-        
-        block = blockchain.new_block(upload_path, proof, None)
-    
-    
-        response = {
-            'message' : "New Music Add",
-            'main_index' : block['main_index'],
-            'proof' : block['proof'],
-            'music_hash':block['music_hash'],
-            'previous_hash' : block['previous_hash'],
-        }
-        
-        return 'OK'
-    
-    
-    return jsonify(response), 200
+"""
+            
 
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
@@ -445,6 +453,21 @@ def full_chain():
         'music_chain':blockchain.music_chain,
         'mainlength': len(blockchain.main_chain),
         'musiclength':len(blockchain.music_chain),
+    }
+    return jsonify(response), 200
+
+    
+@app.route('/<main_index>/chain', methods=['GET'])
+def search(main_index):
+
+    main_index = int(main_index)
+    block = blockchain.main_chain
+    
+    
+    response = {
+            'main_index' : block[main_index],
+            'music_hash' : block[main_index]['music_hash'],
+            'music_chain' : blockchain.music_chain,
     }
     return jsonify(response), 200
 
@@ -511,7 +534,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', default=5000, type=int, help='port to listen on')
     args = parser.parse_args()
     port = args.port
-    
+       
 
     app.run(debug=True, host='127.0.0.1', port=port)
 
