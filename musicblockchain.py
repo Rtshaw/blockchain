@@ -234,10 +234,12 @@ class Blockchain:
         :return: wallet_address
         """
 
-        private_key = hex(random.randint(1, 8288608480668846482228684402464624222246648088028668608040264462))[2:]
-        if len(private_key) != 64:
+        private_key = identity[1:] + hex(random.randint(1, 8288608480668846482228684402464624222246648088028668608040264462))[2:]
+        if len(private_key) < 64:
             for i in range(64 - len(private_key)):
                 private_key = '0' + private_key
+        elif len(private_key) > 64:
+            private_key = private_key[:64]
 
         private_key = bytes.fromhex(private_key)
 
